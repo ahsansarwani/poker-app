@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: poker-server
+    name: texas-hold-em-back
     env: node
     plan: free
     rootDir: server

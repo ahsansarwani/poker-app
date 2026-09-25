@@ -38,7 +38,7 @@ export class Table {
     return this.occupiedSeats().filter((i) => this.seats[i].chips > 0);
   }
 
-  addPlayer(id, name) {
+  addPlayer(id, name, isBot = false) {
     const freeSeat = this.seats.findIndex((s) => s === null);
     if (freeSeat === -1) return null;
     this.seats[freeSeat] = {
@@ -52,8 +52,14 @@ export class Table {
       totalBetThisHand: 0,
       connected: true,
       sittingOut: false,
+      isBot,
     };
     return freeSeat;
+  }
+
+  addBot(name) {
+    const id = `bot-${Math.random().toString(36).slice(2, 10)}`;
+    return this.addPlayer(id, name, true);
   }
 
   removePlayer(id) {
@@ -362,11 +368,13 @@ export class Table {
         currentBetThisRound: p.currentBetThisRound,
         connected: p.connected,
         isYou: p.id === viewerId,
+        isBot: p.isBot,
         holeCards: showCards ? p.holeCards : p.holeCards.map(() => "??"),
       };
     });
 
     return {
+      gameType: "holdem",
       tableId: this.id,
       smallBlind: this.smallBlind,
       bigBlind: this.bigBlind,

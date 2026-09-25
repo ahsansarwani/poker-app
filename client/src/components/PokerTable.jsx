@@ -1,16 +1,10 @@
 import Card from "./Card.jsx";
 import ActionBar from "./ActionBar.jsx";
+import VoiceControls from "./VoiceControls.jsx";
+import ChatPanel from "./ChatPanel.jsx";
+import { seatPosition } from "../seatLayout.js";
 
-const SEAT_POSITIONS = [
-  { bottom: "2%", left: "50%", transform: "translateX(-50%)" },
-  { bottom: "20%", left: "5%" },
-  { top: "20%", left: "10%" },
-  { top: "2%", left: "50%", transform: "translateX(-50%)" },
-  { top: "20%", right: "10%" },
-  { bottom: "20%", right: "5%" },
-];
-
-export default function PokerTable({ state, roomId, onStartHand, onAction, onLeave }) {
+export default function PokerTable({ state, roomId, onStartHand, onAction, onLeave, voice, botVoice, chat }) {
   const you = state.seats[state.yourSeat] || { chips: 0, currentBetThisRound: 0, seat: -1 };
   const canStart = state.street === "waiting" && state.seats.filter(Boolean).length >= 2;
 
@@ -20,9 +14,12 @@ export default function PokerTable({ state, roomId, onStartHand, onAction, onLea
         <div>
           Room <strong>{roomId}</strong> · Blinds {state.smallBlind}/{state.bigBlind}
         </div>
-        <button className="btn btn--ghost" onClick={onLeave}>
-          Leave table
-        </button>
+        <div className="table-header__actions">
+          {voice && <VoiceControls voice={voice} botVoice={botVoice} />}
+          <button className="btn btn--ghost" onClick={onLeave}>
+            Leave table
+          </button>
+        </div>
       </div>
 
       <div className="felt">
@@ -52,15 +49,20 @@ export default function PokerTable({ state, roomId, onStartHand, onAction, onLea
 
         {state.seats.map((seat, i) => {
           if (!seat) return null;
-          const pos = SEAT_POSITIONS[i % SEAT_POSITIONS.length];
+          const pos = seatPosition(i, state.yourSeat);
           const isButton = state.buttonSeat === i;
           const isActing = state.actingSeat === i;
+          const isSpeaking = voice && (seat.isYou ? voice.micOn && voice.localSpeaking : voice.remoteSpeaking.has(i));
+          const isVoiceMuted = voice && !seat.isYou && voice.remoteMuted.has(i);
           return (
-            <div className={`seat ${isActing ? "seat--active" : ""}`} style={pos} key={i}>
+            <div className={`seat ${isActing ? "seat--active" : ""} ${isSpeaking ? "seat--speaking" : ""}`} style={pos} key={i}>
               {isButton && <div className="dealer-chip">D</div>}
               <div className={`seat__info ${seat.folded ? "seat__info--folded" : ""}`}>
                 <div className="seat__name">
-                  {seat.name} {seat.isYou ? "(you)" : ""}
+                  <span>{seat.name}</span>
+                  {seat.isYou && <span className="tag tag--you">you</span>}
+                  {seat.isBot && <span className="tag tag--bot">bot</span>}
+                  {isVoiceMuted && <span className="mic-icon mic-icon--muted" title="Muted">🔇</span>}
                 </div>
                 <div className="seat__chips">{seat.chips}</div>
                 {seat.currentBetThisRound > 0 && <div className="seat__bet">bet {seat.currentBetThisRound}</div>}
@@ -78,10 +80,13 @@ export default function PokerTable({ state, roomId, onStartHand, onAction, onLea
 
       <ActionBar state={state} you={{ ...you, seat: state.yourSeat }} onAction={onAction} />
 
-      <div className="log">
-        {state.log.map((line, i) => (
-          <div key={i}>{line}</div>
-        ))}
+      <div className="table-bottom">
+        <div className="log">
+          {state.log.map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
+        </div>
+        {chat && <ChatPanel chat={chat} />}
       </div>
     </div>
   );
