@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: poker-server
+    env: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node src/index.js
+    healthCheckPath: /health
