@@ -250,7 +250,7 @@ function handleLeave(socket) {
   if (!table) return;
   table.removePlayer(socket.id);
   socket.leave(roomId);
-  const remainingHumans = table.occupiedSeats().filter((i) => !table.seats[i].isBot);
+  const remainingHumans = table.occupiedSeats().filter((i) => !table.seats[i].isBot && !table.seats[i].left);
   if (remainingHumans.length === 0) {
     clearTurnTimer(roomId);
     const t = nextRoundTimers.get(roomId);
@@ -258,7 +258,8 @@ function handleLeave(socket) {
     nextRoundTimers.delete(roomId);
     rooms.remove(roomId);
   } else {
-    broadcast(table);
+    // Leaving can end the round or pass the turn, so re-run the same orchestration as an action.
+    afterAction(table);
   }
 }
 

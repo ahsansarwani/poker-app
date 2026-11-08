@@ -65,10 +65,18 @@ export class Table {
   removePlayer(id) {
     const idx = this.seats.findIndex((s) => s && s.id === id);
     if (idx === -1) return;
-    if (this.street !== "waiting" && this.street !== "showdown" && !this.seats[idx].folded) {
-      this.seats[idx].folded = true;
-      this.seats[idx].sittingOut = true;
-      this._checkForEarlyWin();
+    if (this.street !== "waiting" && this.street !== "showdown") {
+      // Keep the seat until the hand ends: its chips are already in the pot, which is summed from seats.
+      const p = this.seats[idx];
+      p.left = true;
+      p.connected = false;
+      p.sittingOut = true;
+      if (p.folded) return;
+      p.folded = true;
+      this.toActSeats.delete(idx);
+      this.addLog(`${p.name} left the table and folds`);
+      if (this._checkForEarlyWin()) return;
+      if (this.actingSeat === idx) this._advanceTurn();
     } else {
       this.seats[idx] = null;
     }
@@ -345,7 +353,7 @@ export class Table {
 
   finishHandCleanup() {
     for (const i of this.occupiedSeats()) {
-      if (this.seats[i].chips <= 0) {
+      if (this.seats[i].chips <= 0 || this.seats[i].left) {
         this.seats[i] = null;
       }
     }
