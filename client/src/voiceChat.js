@@ -185,7 +185,15 @@ export function useVoiceChat(socket, roomId) {
     socket.on("voicePeerJoined", onPeerJoined);
     socket.on("voicePeerLeft", onPeerLeft);
     socket.on("voiceSignal", onSignal);
+    // After a reconnect every socket id at the table may have changed: rebuild the mesh from scratch.
+    const onReconnect = () => {
+      for (const peerId of [...peersRef.current.keys()]) removePeer(peerId);
+      socket.emit("voiceJoin");
+      if (localStreamRef.current) socket.emit("voiceMute", { muted: !localStreamRef.current.getAudioTracks().some((t) => t.enabled) });
+    };
+
     socket.on("voiceMute", onMute);
+    socket.on("connect", onReconnect);
     socket.emit("voiceJoin");
 
     return () => {
@@ -194,6 +202,7 @@ export function useVoiceChat(socket, roomId) {
       socket.off("voicePeerLeft", onPeerLeft);
       socket.off("voiceSignal", onSignal);
       socket.off("voiceMute", onMute);
+      socket.off("connect", onReconnect);
       socket.emit("voiceLeave");
       for (const peerId of [...peersRef.current.keys()]) removePeer(peerId);
       if (localStreamRef.current) {

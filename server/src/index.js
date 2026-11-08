@@ -12,6 +12,7 @@ const BOT_THINK_MS = [700, 1500];
 const PORT = process.env.PORT || 4300;
 const TURN_SECONDS = 25;
 const NEXT_ROUND_DELAY_MS = 4000;
+const RECONNECT_GRACE_MS = Number(process.env.RECONNECT_GRACE_MS) || 60_000;
 
 // Every game engine (Hold'em's Table, BluffGame, and future additions) is driven through this
 // adapter so the turn/round orchestration below stays game-agnostic. Each engine keeps its own
@@ -55,6 +56,9 @@ const rooms = new RoomManager();
 const socketRoom = new Map(); // socketId -> roomId
 const turnTimers = new Map(); // roomId -> Timeout
 const nextRoundTimers = new Map(); // roomId -> Timeout
+// A browser tab keeps one session token across refreshes and dropped connections, so a player
+// who reconnects within the grace period gets their seat back instead of being removed.
+const sessions = new Map(); // token -> { roomId, socketId, graceTimer }
 
 function broadcast(table) {
   for (const seat of table.seats) {
@@ -116,13 +120,47 @@ function afterAction(table) {
   }
 }
 
+function joinSocketToRoom(socket, token, table) {
+  socket.join(table.id);
+  socketRoom.set(socket.id, table.id);
+  sessions.set(token, { roomId: table.id, socketId: socket.id, graceTimer: null });
+}
+
+// Rebinds a returning tab's seat to its new socket. Returns the table, or null if there's no seat to resume.
+function resumeSession(socket, token) {
+  const session = sessions.get(token);
+  const table = session && rooms.get(session.roomId);
+  const seat = table?.seats.find((p) => p && p.id === session.socketId && !p.left);
+  if (!seat) {
+    sessions.delete(token);
+    return null;
+  }
+  clearTimeout(session.graceTimer);
+  const oldSocketId = session.socketId;
+  seat.id = socket.id;
+  seat.connected = true;
+  socketRoom.delete(oldSocketId);
+  joinSocketToRoom(socket, token, table);
+  // Same token still connected elsewhere (e.g. a duplicated tab): the newest connection takes the seat.
+  io.sockets.sockets.get(oldSocketId)?.disconnect(true);
+  io.to(table.id).except(socket.id).emit("voicePeerLeft", { peerId: oldSocketId });
+  return table;
+}
+
 io.on("connection", (socket) => {
+  const rawToken = socket.handshake.auth?.token;
+  const token = typeof rawToken === "string" && rawToken ? rawToken.slice(0, 64) : socket.id;
+
+  const resumed = resumeSession(socket, token);
+  socket.emit("session", resumed ? { roomId: resumed.id, gameType: resumed.gameType } : { roomId: null });
+  if (resumed) broadcast(resumed);
+
   socket.on("createGameRoom", ({ gameType, name, options }, ack) => {
     try {
+      leaveRoom(socket.id, token);
       const table = rooms.createRoom(gameType, options || {});
       const seat = table.addPlayer(socket.id, (name || "Player").slice(0, 20));
-      socket.join(table.id);
-      socketRoom.set(socket.id, table.id);
+      joinSocketToRoom(socket, token, table);
       ack?.({ ok: true, roomId: table.id, seat, gameType });
       broadcast(table);
     } catch (err) {
@@ -132,13 +170,13 @@ io.on("connection", (socket) => {
 
   socket.on("createGameBotRoom", ({ gameType, name, options, botCount }, ack) => {
     try {
+      leaveRoom(socket.id, token);
       const table = rooms.createRoom(gameType, options || {});
       const seat = table.addPlayer(socket.id, (name || "Player").slice(0, 20));
       const maxBots = table.seats.length - 1;
       const bots = Math.min(Math.max(Number(botCount) || 3, 1), maxBots);
       for (let i = 0; i < bots; i++) table.addBot(BOT_NAMES[i % BOT_NAMES.length]);
-      socket.join(table.id);
-      socketRoom.set(socket.id, table.id);
+      joinSocketToRoom(socket, token, table);
       ack?.({ ok: true, roomId: table.id, seat, gameType });
       const games = GAMES[gameType];
       if (games.canStart(table)) {
@@ -154,10 +192,11 @@ io.on("connection", (socket) => {
   socket.on("joinGameRoom", ({ roomId, name }, ack) => {
     const table = rooms.get(roomId);
     if (!table) return ack?.({ ok: false, error: "Room not found" });
+    if (table.id === socketRoom.get(socket.id)) return ack?.({ ok: false, error: "You're already at this table" });
+    leaveRoom(socket.id, token);
     const seat = table.addPlayer(socket.id, (name || "Player").slice(0, 20));
     if (seat === null) return ack?.({ ok: false, error: "Table is full" });
-    socket.join(table.id);
-    socketRoom.set(socket.id, table.id);
+    joinSocketToRoom(socket, token, table);
     ack?.({ ok: true, roomId: table.id, seat, gameType: table.gameType });
     broadcast(table);
   });
@@ -206,7 +245,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("voiceSignal", ({ to, data }) => {
-    if (!to) return;
+    // Only relay between players at the same table.
+    if (!to || !socketRoom.get(socket.id) || socketRoom.get(to) !== socketRoom.get(socket.id)) return;
     io.to(to).emit("voiceSignal", { from: socket.id, data });
   });
 
@@ -237,19 +277,35 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("leaveRoom", () => handleLeave(socket));
-  socket.on("disconnect", () => handleLeave(socket));
+  socket.on("leaveRoom", () => leaveRoom(socket.id, token));
+  socket.on("disconnect", () => {
+    const roomId = socketRoom.get(socket.id);
+    const session = sessions.get(token);
+    const table = rooms.get(roomId);
+    const seat = table?.seats.find((p) => p && p.id === socket.id);
+    if (!seat || session?.socketId !== socket.id) return leaveRoom(socket.id, token);
+    // Hold the seat for a while; the turn timer keeps the game moving if it's their turn.
+    seat.connected = false;
+    io.to(roomId).emit("voicePeerLeft", { peerId: socket.id });
+    broadcast(table);
+    session.graceTimer = setTimeout(() => leaveRoom(socket.id, token), RECONNECT_GRACE_MS);
+  });
 });
 
-function handleLeave(socket) {
-  const roomId = socketRoom.get(socket.id);
+function leaveRoom(socketId, token) {
+  const session = sessions.get(token);
+  if (session?.socketId === socketId) {
+    clearTimeout(session.graceTimer);
+    sessions.delete(token);
+  }
+  const roomId = socketRoom.get(socketId);
   if (!roomId) return;
-  socket.to(roomId).emit("voicePeerLeft", { peerId: socket.id });
+  socketRoom.delete(socketId);
+  io.to(roomId).except(socketId).emit("voicePeerLeft", { peerId: socketId });
+  io.in(socketId).socketsLeave(roomId);
   const table = rooms.get(roomId);
-  socketRoom.delete(socket.id);
   if (!table) return;
-  table.removePlayer(socket.id);
-  socket.leave(roomId);
+  table.removePlayer(socketId);
   const remainingHumans = table.occupiedSeats().filter((i) => !table.seats[i].isBot && !table.seats[i].left);
   if (remainingHumans.length === 0) {
     clearTurnTimer(roomId);

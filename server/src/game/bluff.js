@@ -36,7 +36,9 @@ export class BluffGame {
   addPlayer(id, name, isBot = false) {
     const freeSeat = this.seats.findIndex((s) => s === null);
     if (freeSeat === -1) return null;
-    this.seats[freeSeat] = { id, name, isBot, hand: [], connected: true };
+    // Joining mid-round: wait for the next deal, or they'd be dealt turns with an empty hand.
+    const waiting = this.phase === "playing";
+    this.seats[freeSeat] = { id, name, isBot, hand: [], connected: true, waiting };
     return freeSeat;
   }
 
@@ -54,7 +56,8 @@ export class BluffGame {
       if (this.lastPlay?.seat === idx) this.lastPlay = null;
       if (this.awaitingConfirmation === idx) this.awaitingConfirmation = null;
       if (this.actingSeat === idx) this.actingSeat = this._nextOccupiedSeat(idx);
-      if (this.occupiedSeats().length < MIN_PLAYERS) this._endRound(this.occupiedSeats()[0] ?? null);
+      const inRound = this._inRoundSeats();
+      if (inRound.length < MIN_PLAYERS) this._endRound(inRound[0] ?? null);
     } else {
       this.seats[idx] = null;
     }
@@ -65,13 +68,20 @@ export class BluffGame {
     if (this.log.length > 100) this.log.shift();
   }
 
+  _inRoundSeats() {
+    return this.occupiedSeats().filter((i) => !this.seats[i].waiting);
+  }
+
   canStart() {
     return this.occupiedSeats().length >= MIN_PLAYERS && this.phase !== "playing";
   }
 
   start() {
     const seatIdxs = this.occupiedSeats();
-    for (const i of seatIdxs) this.seats[i].hand = [];
+    for (const i of seatIdxs) {
+      this.seats[i].hand = [];
+      this.seats[i].waiting = false;
+    }
     const deck = shuffle(freshDeck());
     let s = 0;
     while (deck.length) {
@@ -98,7 +108,7 @@ export class BluffGame {
     const n = this.seats.length;
     for (let step = 1; step <= n; step++) {
       const idx = (from + step) % n;
-      if (this.seats[idx]) return idx;
+      if (this.seats[idx] && !this.seats[idx].waiting) return idx;
     }
     return -1;
   }
@@ -188,6 +198,8 @@ export class BluffGame {
         isBot: p.isBot,
         isYou: p.id === viewerId,
         cardCount: p.hand.length,
+        connected: p.connected,
+        waiting: p.waiting,
         hand: i === viewerSeat ? p.hand : undefined,
       };
     });

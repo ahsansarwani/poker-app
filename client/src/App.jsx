@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { socket } from "./socket.js";
 import { useVoiceChat } from "./voiceChat.js";
 import { useChat } from "./chat.js";
@@ -18,6 +18,8 @@ export default function App() {
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(socket.connected);
   const [botVoiceOn, setBotVoiceOn] = useState(true);
+  const roomIdRef = useRef(null);
+  roomIdRef.current = roomId;
   const voice = useVoiceChat(socket, roomId);
   const chat = useChat(socket, roomId);
   const hasBots = !!tableState?.seats?.some((s) => s?.isBot);
@@ -36,12 +38,23 @@ export default function App() {
     socket.on("disconnect", () => setConnected(false));
     socket.on("connect_error", () => setConnected(false));
     socket.on("state", setTableState);
+    // Sent on every (re)connect: the seat we got back, or none if the table is gone.
+    socket.on("session", ({ roomId: resumedRoomId }) => {
+      if (resumedRoomId) {
+        setRoomId(resumedRoomId);
+      } else if (roomIdRef.current) {
+        setRoomId(null);
+        setTableState(null);
+        setError("You were away too long and lost your seat, or the table closed.");
+      }
+    });
     socket.on("actionError", ({ message }) => setError(message));
     return () => {
       socket.off("connect");
       socket.off("disconnect");
       socket.off("connect_error");
       socket.off("state", setTableState);
+      socket.off("session");
       socket.off("actionError");
       socket.disconnect();
     };
@@ -116,7 +129,8 @@ export default function App() {
         botVoice={botVoice}
         chat={chat}
       />
-      {error && <div className="toast">{error}</div>}
+      {!connected && <div className="toast">Connection lost — reconnecting&hellip; your seat is held for a minute.</div>}
+      {connected && error && <div className="toast">{error}</div>}
       <div style={{ display: "none" }}>
         {voice.remoteAudios.map((a) => (
           <audio

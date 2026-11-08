@@ -67,6 +67,8 @@ export default function BluffBoard({ state, roomId, onStartHand, onAction, onLea
                   <span>{seat.name}</span>
                   {seat.isYou && <span className="tag tag--you">you</span>}
                   {seat.isBot && <span className="tag tag--bot">bot</span>}
+                  {seat.connected === false && <span className="tag tag--away">away</span>}
+                  {seat.waiting && <span className="tag tag--bot">next round</span>}
                   {isVoiceMuted && <span className="mic-icon mic-icon--muted" title="Muted">🔇</span>}
                 </div>
                 <div className="seat__chips">{seat.cardCount} card{seat.cardCount === 1 ? "" : "s"}</div>

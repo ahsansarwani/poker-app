@@ -41,17 +41,20 @@ export class Table {
   addPlayer(id, name, isBot = false) {
     const freeSeat = this.seats.findIndex((s) => s === null);
     if (freeSeat === -1) return null;
+    // Joining mid-hand: sit out (folded) until the next deal, or they'd get turns with no cards.
+    const midHand = this.street !== "waiting" && this.street !== "showdown";
     this.seats[freeSeat] = {
       id,
       name,
       chips: this.startingStack,
       holeCards: [],
-      folded: false,
+      folded: midHand,
       allIn: false,
       currentBetThisRound: 0,
       totalBetThisHand: 0,
       connected: true,
-      sittingOut: false,
+      sittingOut: midHand,
+      waiting: midHand,
       isBot,
     };
     return freeSeat;
@@ -111,6 +114,7 @@ export class Table {
       p.currentBetThisRound = 0;
       p.totalBetThisHand = 0;
       p.holeCards = [];
+      p.waiting = false;
     }
 
     this.buttonSeat =
@@ -363,10 +367,8 @@ export class Table {
   getPublicState(viewerId) {
     const seats = this.seats.map((p, i) => {
       if (!p) return null;
-      const showCards =
-        p.id === viewerId ||
-        this.street === "showdown" ||
-        (this.lastResult && this.lastResult.revealed && this.lastResult.revealed[i]);
+      // Only hands that reached a real showdown are revealed — never folded or uncontested ones.
+      const showCards = p.id === viewerId || !!this.lastResult?.revealed?.[i];
       return {
         seat: i,
         name: p.name,
@@ -375,6 +377,7 @@ export class Table {
         allIn: p.allIn,
         currentBetThisRound: p.currentBetThisRound,
         connected: p.connected,
+        waiting: p.waiting,
         isYou: p.id === viewerId,
         isBot: p.isBot,
         holeCards: showCards ? p.holeCards : p.holeCards.map(() => "??"),
