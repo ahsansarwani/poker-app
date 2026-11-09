@@ -56,7 +56,7 @@ export default function PokerTable({ state, roomId, onStartHand, onAction, onLea
           const isVoiceMuted = voice && !seat.isYou && voice.remoteMuted.has(i);
           return (
             <div className={`seat ${isActing ? "seat--active" : ""} ${isSpeaking ? "seat--speaking" : ""}`} style={pos} key={i}>
-              {isButton && <div className="dealer-chip">D</div>}
+              {isButton && <div className="dealer-chip" aria-hidden="true">D</div>}
               <div className={`seat__info ${seat.folded ? "seat__info--folded" : ""}`}>
                 <div className="seat__name">
                   <span>{seat.name}</span>
@@ -64,7 +64,7 @@ export default function PokerTable({ state, roomId, onStartHand, onAction, onLea
                   {seat.isBot && <span className="tag tag--bot">bot</span>}
                   {seat.connected === false && <span className="tag tag--away">away</span>}
                   {seat.waiting && <span className="tag tag--bot">next hand</span>}
-                  {isVoiceMuted && <span className="mic-icon mic-icon--muted" title="Muted">🔇</span>}
+                  {isVoiceMuted && <span className="mic-icon mic-icon--muted" role="img" aria-label="Muted">🔇</span>}
                 </div>
                 <div className="seat__chips">{seat.chips}</div>
                 {seat.currentBetThisRound > 0 && <div className="seat__bet">bet {seat.currentBetThisRound}</div>}

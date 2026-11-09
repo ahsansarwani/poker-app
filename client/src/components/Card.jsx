@@ -1,4 +1,5 @@
 const SUIT_SYMBOL = { s: "♠", h: "♥", d: "♦", c: "♣" };
+const SUIT_NAME = { s: "spades", h: "hearts", d: "diamonds", c: "clubs" };
 const RANK_LABEL = { T: "10" };
 
 export default function Card({ code, faceDown = false, small = false }) {
@@ -17,15 +18,19 @@ export default function Card({ code, faceDown = false, small = false }) {
   const symbol = SUIT_SYMBOL[suit];
 
   return (
-    <div className={`${size} ${isRed ? "card--red" : "card--black"}`}>
+    <div
+      className={`${size} ${isRed ? "card--red" : "card--black"}`}
+      role="img"
+      aria-label={`${label} of ${SUIT_NAME[suit]}`}
+    >
       <span className="card__corner card__corner--top">
         {label}
-        <span className="card__corner-suit">{symbol}</span>
+        <span aria-hidden="true" className="card__corner-suit">{symbol}</span>
       </span>
-      <span className="card__suit">{symbol}</span>
+      <span aria-hidden="true" className="card__suit">{symbol}</span>
       <span className="card__corner card__corner--bottom">
         {label}
-        <span className="card__corner-suit">{symbol}</span>
+        <span aria-hidden="true" className="card__corner-suit">{symbol}</span>
       </span>
     </div>
   );

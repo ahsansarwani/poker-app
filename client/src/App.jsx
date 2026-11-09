@@ -3,6 +3,7 @@ import { socket } from "./socket.js";
 import { useVoiceChat } from "./voiceChat.js";
 import { useChat } from "./chat.js";
 import { useBotVoiceOver } from "./botVoice.js";
+import { useAnnouncer } from "./announce.js";
 import Lobby from "./components/Lobby.jsx";
 import PokerTable from "./components/PokerTable.jsx";
 import BluffBoard from "./components/BluffBoard.jsx";
@@ -28,6 +29,7 @@ export default function App() {
     () => ({ enabled: botVoiceOn, hasBots, toggle: () => setBotVoiceOn((v) => !v) }),
     [botVoiceOn, hasBots]
   );
+  const announcement = useAnnouncer(tableState);
 
   useEffect(() => {
     socket.connect();
@@ -102,23 +104,23 @@ export default function App() {
   }, []);
 
   const handleStartGame = useCallback(() => socket.emit("startGame"), []);
+  const handleRetry = useCallback(() => socket.connect(), []);
 
+  let screen;
   if (!roomId || !tableState) {
-    return (
+    screen = (
       <Lobby
         onCreate={handleCreate}
         onJoin={handleJoin}
         onCreateBotRoom={handleCreateBotRoom}
+        onRetry={handleRetry}
         error={error}
         connected={connected}
       />
     );
-  }
-
-  const Board = BOARDS[tableState.gameType] || PokerTable;
-
-  return (
-    <>
+  } else {
+    const Board = BOARDS[tableState.gameType] || PokerTable;
+    screen = (
       <Board
         state={tableState}
         roomId={roomId}
@@ -129,9 +131,16 @@ export default function App() {
         botVoice={botVoice}
         chat={chat}
       />
+    );
+  }
+
+  return (
+    <main>
+      {screen}
       {!connected && <div className="toast">Connection lost — reconnecting&hellip; your seat is held for a minute.</div>}
-      {connected && error && <div className="toast">{error}</div>}
-      <div style={{ display: "none" }}>
+      {connected && error && <div className="toast" role="status">{error}</div>}
+      <div className="sr-only" role="status" aria-live="polite">{announcement}</div>
+      <div style={{ display: "none" }} aria-hidden="true">
         {voice.remoteAudios.map((a) => (
           <audio
             key={a.peerId}
@@ -143,6 +152,6 @@ export default function App() {
           />
         ))}
       </div>
-    </>
+    </main>
   );
 }

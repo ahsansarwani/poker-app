@@ -1,6 +1,8 @@
 import { io } from "socket.io-client";
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:4300";
+const SERVER_URL =
+  import.meta.env.VITE_SERVER_URL ||
+  (import.meta.env.DEV ? "http://localhost:4300" : "https://texas-hold-em-back.onrender.com");
 const TOKEN_KEY = "holdem-session";
 
 // Per-tab session token (sessionStorage survives refreshes but not new tabs), so the server can

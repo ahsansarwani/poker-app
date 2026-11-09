@@ -69,12 +69,16 @@ export default function BluffBoard({ state, roomId, onStartHand, onAction, onLea
                   {seat.isBot && <span className="tag tag--bot">bot</span>}
                   {seat.connected === false && <span className="tag tag--away">away</span>}
                   {seat.waiting && <span className="tag tag--bot">next round</span>}
-                  {isVoiceMuted && <span className="mic-icon mic-icon--muted" title="Muted">🔇</span>}
+                  {isVoiceMuted && <span className="mic-icon mic-icon--muted" role="img" aria-label="Muted">🔇</span>}
                 </div>
                 <div className="seat__chips">{seat.cardCount} card{seat.cardCount === 1 ? "" : "s"}</div>
               </div>
-              {!seat.isYou && (
-                <div className="seat__cards seat__cards--wrap">
+              {!seat.isYou && seat.cardCount > 0 && (
+                <div
+                  className="seat__cards seat__cards--wrap"
+                  role="img"
+                  aria-label={`${seat.cardCount} face-down card${seat.cardCount > 1 ? "s" : ""}`}
+                >
                   {Array.from({ length: seat.cardCount }).map((_, idx) => (
                     <Card key={idx} code="??" small />
                   ))}
@@ -108,15 +112,17 @@ export default function BluffBoard({ state, roomId, onStartHand, onAction, onLea
         )}
       </div>
 
-      <div className="hand hand--yours">
+      <div className="hand hand--yours" role="group" aria-label="Your hand">
         {(you?.hand || []).map((code, idx) => (
-          <div
+          <button
             key={idx}
+            type="button"
             className={`hand__card ${selected.includes(idx) ? "hand__card--selected" : ""}`}
+            aria-pressed={selected.includes(idx)}
             onClick={() => toggleCard(idx)}
           >
             <Card code={code} />
-          </div>
+          </button>
         ))}
       </div>
 

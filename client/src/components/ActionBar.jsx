@@ -42,6 +42,7 @@ export default function ActionBar({ state, you, onAction }) {
             max={maxBet}
             value={Math.min(amount, maxBet)}
             onChange={(e) => setAmount(Number(e.target.value))}
+            aria-label="Raise amount"
           />
           <input
             type="number"
@@ -49,6 +50,7 @@ export default function ActionBar({ state, you, onAction }) {
             max={maxBet}
             value={amount}
             onChange={(e) => setAmount(Number(e.target.value))}
+            aria-label="Raise amount"
           />
           <button
             className="btn btn--raise"

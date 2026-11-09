@@ -8,12 +8,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
+    "preact": "^11.2.0",
     "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^6.3.0",
+    "@preact/preset-vite": "^2.10.6",
     "vite": "^8.3.6"
   }
 }

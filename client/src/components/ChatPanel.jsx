@@ -11,7 +11,7 @@ export default function ChatPanel({ chat }) {
 
   return (
     <div className="chat-panel">
-      <div className="chat-panel__messages">
+      <div className="chat-panel__messages" role="log" aria-live="polite" aria-label="Chat messages">
         {chat.messages.length === 0 && <div className="chat-panel__empty">No messages yet.</div>}
         {chat.messages.map((m) => (
           <div key={m.id} className="chat-panel__line">
@@ -28,6 +28,7 @@ export default function ChatPanel({ chat }) {
           }}
           placeholder="Say something…"
           maxLength={240}
+          aria-label="Chat message"
         />
         <button className="btn btn--ghost" onClick={submit} disabled={!text.trim()}>
           Send

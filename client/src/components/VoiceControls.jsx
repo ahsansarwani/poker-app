@@ -6,17 +6,21 @@ export default function VoiceControls({ voice, botVoice }) {
         <button
           className={`btn btn--mic ${voice.micOn ? "btn--mic-on" : ""}`}
           onClick={voice.toggleMic}
-          title={voice.micOn ? "Mute microphone" : "Turn on microphone"}
+          title="Microphone"
+          aria-pressed={voice.micOn}
+          aria-label={voice.micOn ? "Mute microphone" : "Turn on microphone"}
         >
           {voice.micOn ? "🎙️ On" : "🎙️ Off"}
         </button>
       )}
-      {voice.micError && <span className="voice-error">{voice.micError}</span>}
+      {voice.micError && <span className="voice-error" role="status">{voice.micError}</span>}
       {botVoice?.hasBots && (
         <button
           className={`btn btn--mic ${botVoice.enabled ? "btn--mic-on" : ""}`}
           onClick={botVoice.toggle}
-          title={botVoice.enabled ? "Mute bot voice-over" : "Enable bot voice-over"}
+          title="Bot voice-over"
+          aria-pressed={botVoice.enabled}
+          aria-label={botVoice.enabled ? "Mute bot voice-over" : "Enable bot voice-over"}
         >
           {botVoice.enabled ? "🔊 Bots" : "🔇 Bots"}
         </button>

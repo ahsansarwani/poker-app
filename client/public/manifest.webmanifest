@@ -1,0 +1,17 @@
+{
+  "name": "Hold'em House",
+  "short_name": "Hold'em",
+  "description": "Play Texas Hold'em and Bluff online with friends or bots.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0508",
+  "theme_color": "#0a0508",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

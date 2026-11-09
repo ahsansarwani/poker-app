@@ -8,7 +8,7 @@ const GAMES = [
   { id: "thulla", name: "Thulla", blurb: "Coming soon.", icon: "♦️", ready: false },
 ];
 
-export default function Lobby({ onCreate, onJoin, onCreateBotRoom, error, connected }) {
+export default function Lobby({ onCreate, onJoin, onCreateBotRoom, onRetry, error, connected }) {
   const [gameId, setGameId] = useState(null);
   const [mode, setMode] = useState("friends"); // "friends" | "bots"
   const [name, setName] = useState("");
@@ -30,7 +30,14 @@ export default function Lobby({ onCreate, onJoin, onCreateBotRoom, error, connec
       </div>
 
       {!connected && (
-        <p className="connection-banner">Connecting to the game server&hellip; if this doesn't clear up, refresh the page.</p>
+        <div className="connection-banner">
+          <p>
+            Connecting to the game server&hellip; if it just woke up on free hosting, this clears itself in a minute.
+          </p>
+          <button className="btn btn--ghost" onClick={onRetry}>
+            Retry now
+          </button>
+        </div>
       )}
 
       {!game ? (
